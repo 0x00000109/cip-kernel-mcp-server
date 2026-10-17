@@ -307,6 +307,106 @@ export interface CipPackagesProvider extends Provider {
 }
 
 // =============================================================================
+// Release Announcements Types (Module P4, Rules R1/R3)
+// =============================================================================
+
+/** Release source type. */
+export type ReleaseSource = 'cip' | 'kernel.org' | 'debian' | 'other';
+
+/**
+ * CIP kernel release announcement.
+ * Rule R1: Upstream first - announcements from kernel.org and CIP project.
+ * Rule R3: Commit-keyed - releases reference fixing commits.
+ */
+export interface CipRelease {
+  /** Release identifier (e.g., 'v5.10.200-cip35'). */
+  id: string;
+  /** Full version string. */
+  version: string;
+  /** Release date (ISO 8601). */
+  releasedAt: string;
+  /** Source of the announcement. */
+  source: ReleaseSource;
+  /** URL to the announcement. */
+  url?: string;
+  /** Title or subject of the announcement. */
+  title?: string;
+  /** Release notes or changelog. */
+  notes?: string;
+  /** List of CVEs fixed in this release. */
+  fixedCves: string[];
+  /** List of fixing commit SHAs (Rule R3: commit-keyed). */
+  fixingCommits: string[];
+  /** Kernel series (e.g., '5.10'). */
+  series?: string;
+  /** Branch name (e.g., 'linux-5.10.y-cip'). */
+  branch?: string;
+  /** Whether this is a stable release. */
+  isStable: boolean;
+  /** Whether this is a CIP-specific release. */
+  isCip: boolean;
+}
+
+/** Query options for release announcements. */
+export interface ReleaseQuery {
+  /** Filter by release ID or version pattern. */
+  version?: string;
+  /** Filter by source. */
+  source?: ReleaseSource;
+  /** Filter by kernel series. */
+  series?: string;
+  /** Filter by branch. */
+  branch?: string;
+  /** Filter by date range (ISO 8601 date or datetime). */
+  since?: string;
+  /** Filter by date range (ISO 8601 date or datetime). */
+  until?: string;
+  /** Filter by CVE ID. */
+  cve?: string;
+  /** Whether to include only CIP releases. */
+  cipOnly?: boolean;
+  /** Whether to include only stable releases. */
+  stableOnly?: boolean;
+  /** Maximum number of results. */
+  limit?: number;
+}
+
+/** Result of a release announcements query. */
+export interface ReleaseQueryResult {
+  releases: CipRelease[];
+  /** Total number of releases matching the query. */
+  total: number;
+  /** Number of CIP releases in the result. */
+  cipCount: number;
+  /** Number of stable releases in the result. */
+  stableCount: number;
+  /** Evidence chain for the query. */
+  evidence: EvidenceItem[];
+}
+
+/** Provider for CIP release announcements. */
+export interface ReleaseAnnouncementsProvider extends Provider {
+  /**
+   * Query release announcements.
+   * Rule R1: Upstream first - prioritizes kernel.org and CIP sources.
+   * Rule R3: Commit-keyed - returns releases with fixing commit information.
+   */
+  queryReleases(options?: ReleaseQuery): Promise<ReleaseQueryResult>;
+  /**
+   * Get a specific release by ID.
+   */
+  getRelease(releaseId: string): Promise<CipRelease | undefined>;
+  /**
+   * Get the latest release for a given series.
+   */
+  getLatestRelease(series: string): Promise<CipRelease | undefined>;
+  /**
+   * Refresh the release announcements cache.
+   */
+  refresh(): Promise<void>;
+}
+
+// =============================================================================
 // Patch Builder Types (Module W1, Rules R1/R4/R5)
 // =============================================================================
 
