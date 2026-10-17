@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { AuditLog } from '../engine/audit.js';
-import type { CveProvider, DependencyQuery } from '../engine/types.js';
+import type { CveProvider, DependencyQuery, BackportResult } from '../engine/types.js';
 import type { CacheManager } from '../engine/cache.js';
 import type { SystemInventoryProvider } from '../providers/system-inventory.js';
 import { CipGitProvider } from '../providers/cip-git.js';
 import { PatchLocator } from '../analysis/patch-locator.js';
 import { assessApplicability } from '../analysis/cve-applicability.js';
 import { DependencyGraphProvider } from '../analysis/dependency-graph.js';
+import { PatchBuilderProvider } from '../analysis/patch-builder.js';
 
 export interface ToolDeps {
   audit: AuditLog;
@@ -32,6 +33,7 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
   });
   const patchLocator = new PatchLocator(patchProvider);
   const dependencyGraphProvider = new DependencyGraphProvider();
+  const patchBuilderProvider = new PatchBuilderProvider(deps.cveFeed, patchProvider);
 
   server.registerTool(
     'scan_system',
@@ -189,6 +191,45 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
         return json(result);
       } catch (e) {
         deps.audit.record('query_dependency_graph', { queryType, nodeIds, startId, endId }, undefined, String(e));
+        throw e;
+      }
+    },
+  );
+
+  server.registerTool(
+    'draft_backport',
+    {
+      title: 'Draft backport patch',
+      description:
+        'Draft a kernel-rule-compliant backport into a staging directory. Creates draft patches with proper backport headers (commit <sha> upstream, Rule R4). Never applies to running system (Rule R1/R5). Returns conflict report and evidence chain.',
+      inputSchema: {
+        cveId: z
+          .string()
+          .regex(/^CVE-\d{4}-\d{4,}$/i, 'Expected a CVE id like CVE-2024-1234'),
+        upstreamSha: z
+          .string()
+          .min(7, 'SHA must be at least 7 characters')
+          .max(64, 'SHA too long'),
+        targetBranch: z
+          .string()
+          .optional()
+          .describe('Target CIP branch (e.g., linux-5.10.y-cip)'),
+        outputDir: z
+          .string()
+          .optional()
+          .describe('Output directory for draft patches (default: .cip-mcp-staging)'),
+      },
+    },
+    async ({ cveId, upstreamSha, targetBranch, outputDir }) => {
+      try {
+        const result = await patchBuilderProvider.draftBackport(cveId, upstreamSha, {
+          targetBranch,
+          outputDir,
+        });
+        deps.audit.record('draft_backport', { cveId, upstreamSha, targetBranch, outputDir }, result);
+        return json(result);
+      } catch (e) {
+        deps.audit.record('draft_backport', { cveId, upstreamSha, targetBranch, outputDir }, undefined, String(e));
         throw e;
       }
     },

@@ -215,3 +215,147 @@ export interface DependencyProvider extends Provider {
   /** Query the dependency graph. */
   queryGraph(query: DependencyQuery, graph?: DependencyGraph): Promise<DependencyQueryResult>;
 }
+
+// =============================================================================
+// Patch Builder Types (Module W1, Rules R1/R4/R5)
+// =============================================================================
+
+/**
+ * Patch builder options for creating backports.
+ * Rule R4: Backports must reference the upstream commit ID in a separate
+ * `commit <sha> upstream` changelog line; deviations and conflict resolutions
+ * must be documented.
+ * Rule R5: Sources not binaries - we work with source patches only.
+ */
+export interface PatchBuilderOptions {
+  /** Output directory for draft patches (default: staging directory). */
+  outputDir?: string;
+  /** Base kernel version for the backport (e.g., '5.10.209-cip50'). */
+  baseVersion?: string;
+  /** Target CIP branch (e.g., 'linux-5.10.y-cip'). */
+  targetBranch?: string;
+  /** Whether to include conflict resolution markers. */
+  includeConflictMarkers?: boolean;
+}
+
+/** Conflict type in a backport. */
+export type ConflictType = 
+  | 'context-change'      // Context around the change is different
+  | 'symbol-renamed'      // Symbol or function was renamed
+  | 'file-moved'          // File was moved to a different location
+  | 'code-restructured'   // Code structure changed significantly
+  | 'dependency-added'    // New dependencies were added
+  | 'api-changed'         // API changed between versions
+  | 'manual-resolution'   // Required manual resolution
+  ;
+
+/** A single conflict found during backporting. */
+export interface BackportConflict {
+  /** Type of conflict. */
+  type: ConflictType;
+  /** File where the conflict was found. */
+  file: string;
+  /** Line number (if applicable). */
+  line?: number;
+  /** Description of the conflict. */
+  description: string;
+  /** The conflicting code from the upstream patch. */
+  upstreamCode?: string;
+  /** The conflicting code from the target branch. */
+  targetCode?: string;
+  /** Suggested resolution (if available). */
+  suggestedResolution?: string;
+  /** Whether this conflict was auto-resolved. */
+  autoResolved?: boolean;
+}
+
+/** Resolution strategy for conflicts. */
+export type ConflictResolutionStrategy = 
+  | 'skip'              // Skip this patch entirely
+  | 'manual'            // Require manual resolution
+  | 'auto-merge'        // Attempt automatic merge
+  | 'use-upstream'      // Use upstream version
+  | 'use-target'        // Use target version
+  ;
+
+/** Statistics for a backport operation. */
+export interface BackportStatistics {
+  /** Total number of patches processed. */
+  totalPatches: number;
+  /** Number of patches successfully backported. */
+  successful: number;
+  /** Number of patches with conflicts. */
+  withConflicts: number;
+  /** Number of patches that failed. */
+  failed: number;
+  /** Total number of conflicts found. */
+  totalConflicts: number;
+  /** Number of conflicts auto-resolved. */
+  autoResolved: number;
+  /** Number of conflicts requiring manual resolution. */
+  manualResolutionRequired: number;
+}
+
+/** A draft backport patch file. */
+export interface DraftPatch {
+  /** Path to the draft patch file. */
+  path: string;
+  /** Name of the patch. */
+  name: string;
+  /** CVE ID this patch addresses (if applicable). */
+  cve?: string;
+  /** Upstream commit SHA this patch is based on. */
+  upstreamSha: string;
+  /** Target branch for the backport. */
+  targetBranch: string;
+  /** Whether the patch was successfully created. */
+  success: boolean;
+  /** Conflicts found during backporting. */
+  conflicts: BackportConflict[];
+  /** Statistics for this patch. */
+  stats: BackportStatistics;
+  /** The generated patch content (if success). */
+  content?: string;
+  /** Error message (if failed). */
+  error?: string;
+  /** Evidence chain for the backport. */
+  evidence: EvidenceItem[];
+}
+
+/** Result of a backport operation. */
+export interface BackportResult {
+  /** CVE ID this backport is for. */
+  cve: string;
+  /** Upstream commit SHA being backported. */
+  upstreamSha: string;
+  /** Target branch. */
+  targetBranch: string;
+  /** Output directory where patches were created. */
+  outputDir: string;
+  /** List of draft patches created. */
+  draftPatches: DraftPatch[];
+  /** Overall statistics. */
+  stats: BackportStatistics;
+  /** Overall success status. */
+  success: boolean;
+  /** Any errors encountered. */
+  errors: string[];
+  /** Evidence chain for the entire operation. */
+  evidence: EvidenceItem[];
+}
+
+/** Provider for backport/patch building operations. */
+export interface PatchBuilderProvider extends Provider {
+  /**
+   * Draft a backport for a given CVE and upstream commit.
+   * Rule R1: Never invent patches - only backport existing upstream fixes.
+   * Rule R4: Backports must follow kernel backport format with commit <sha> upstream.
+   * Rule R5: Work with sources, not binaries.
+   */
+  draftBackport(
+    cveId: string,
+    upstreamSha: string,
+    options?: PatchBuilderOptions,
+  ): Promise<BackportResult>;
+}
+
