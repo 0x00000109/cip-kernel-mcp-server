@@ -34,7 +34,7 @@ The [Civil Infrastructure Platform (CIP)](https://www.cip-project.org/) maintain
 | `dependency_graph` | Build and query a dependency graph: kernel symbols ↔ modules ↔ drivers ↔ packages ↔ services. Answers "what breaks if X changes?" |
 | `query_cve` | Look up a CVE across NVD, the kernel.org `cve-tracker`, and the CIP security feeds; returns affected files, functions, and fixing commits for 5.10.x. |
 | `cve_applicability` | Cross-reference a CVE against a concrete kernel config + module inventory → **applicable / not applicable / unknown**, with reasoning. |
-| `find_patches` | Locate existing fixes: upstream stable 5.10.x backports, `cip-security` / `rt` branch commits, and distro patches. |
+| `find_patches` | Locate existing fixes: upstream stable 5.10.x backports, CIP branch commits, and distro patches. |
 | `patch_builder` | Draft a backport: fetches the fixing commit, checks whether it applies cleanly to the target tree, and reports conflicts. |
 | `config_audit` | Audit kernel config against hardening baselines and CVE-driven recommendations (e.g., "disable X, enable Y"). |
 | `sbom_export` | Emit a CycloneDX/SPDX SBOM of the scanned system, including kernel and module inventory. |
@@ -53,9 +53,9 @@ flowchart LR
 ```
 
 - **Transport:** stdio (local admin workstation) and streamable HTTP (team server).
-- **Data sources:** local `/sys`, `/proc`, `modules.dep`, `Module.symvers`; local or remote git mirrors of `cip-kernel` and `cip-security`; NVD / kernel.org CVE feeds. All remote data is cached locally for air-gapped use.
+- **Data sources:** local `/sys`, `/proc`, `modules.dep`, `Module.symvers`; local or remote git mirrors of CIP kernel branches; NVD / kernel.org CVE feeds. All remote data is cached locally for air-gapped use.
 - **Safety model:** tools are read-only by default. `patch_builder` writes to a staging directory only; no tool touches a running system.
-- **Planned SDK / engine design:** a small core ("engine") plus pluggable providers, so the community can add sources (e.g., Debian CIP package tracker, Yocto recipes, Buildroot) without touching the core.
+- **Engine design:** a small core ("engine") plus pluggable providers, so the community can add sources (e.g., Debian CIP package tracker, Yocto recipes, Buildroot) without touching the core.
 
 ## 5. Security Principles
 
@@ -65,7 +65,7 @@ flowchart LR
 4. **Full audit trail** — every tool invocation is logged locally (what was read, what was fetched, what was drafted).
 5. **Deterministic outputs** — CVE applicability verdicts always include their evidence chain, so admins can verify the agent's reasoning.
 
-See [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) for the detailed safety and security model.
+See [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) for the detailed safety and security model, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the modular architecture derived from CIP's own maintenance rules, CVE policies, and IEC 62443 alignment — including implementation priorities from MCP foundation to product.
 
 ## 6. Roadmap
 
@@ -74,12 +74,14 @@ See [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) for the detailed safety and sec
 - **M2 — Patch workflow:** `patch_builder` with backport conflict analysis; `sbom_export`.
 - **M3 — Ecosystem:** provider SDK, Docker image, CI (self-hosted runner tests against real 5.10.x configs), community docs.
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#4-implementation-priorities--the-mcp-to-product-path) for the detailed module-level priorities (P0–P3) that refine this roadmap.
+
 ## 7. Tech Stack (proposed)
 
 - **Language:** TypeScript (Node.js) or Python — decided with the community at kickoff; both have mature MCP SDKs.
 - **MCP SDK:** official Model Context Protocol SDK (server side).
 - **Data:** git2 bindings for kernel mirrors, SQLite/JSON cache for CVE data, CycloneDX tooling for SBOM.
-- **CI:** GitHub Actions with matrix tests over representative CIP 5.10.x configs (including `cip-beacon` and realtime variants).
+- **CI:** GitHub Actions with matrix tests over representative CIP 5.10.x configs (including realtime variants).
 
 ## 8. License & Contribution
 
@@ -89,11 +91,12 @@ MIT licensed. Contributions welcome: kernel triage expertise, MCP tool ideas, CV
 
 ```
 .
-├── README.md            # this concept
-├── LICENSE              # MIT
+├── README.md                 # concept overview
+├── LICENSE                   # MIT
 ├── docs/
-│   ├── CONCEPT.md       # extended design document (planned)
-│   └── THREAT-MODEL.md  # safety & security model
-├── src/                 # server + tools (post-kickoff)
-└── .github/             # issue templates, CI
+│   ├── ARCHITECTURE.md       # modular architecture & implementation priorities
+│   ├── CONCEPT.md            # extended design document (planned)
+│   └── THREAT-MODEL.md       # safety & security model
+├── src/                      # server + tools (post-kickoff)
+└── .github/                  # issue templates, CI
 ```
