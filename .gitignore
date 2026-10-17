@@ -9,8 +9,10 @@ dist/
 build/
 *.tsbuildinfo
 
-# Local caches & secrets
+# Local caches, audit logs & secrets
 .cache/
+.cip-mcp-cache/
+.cip-mcp-audit.log
 *.sqlite
 .env
 .env.*

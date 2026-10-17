@@ -1,0 +1,36 @@
+{
+  "name": "cip-kernel-mcp-server",
+  "version": "0.1.0",
+  "description": "Open-source MCP server engine for Linux system administrators on CIP SLTS kernels (5.10.x) — dependency discovery and security patch implementation support.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0x00000109/cip-kernel-mcp-server.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "cip-kernel-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.9"
+  }
+}
