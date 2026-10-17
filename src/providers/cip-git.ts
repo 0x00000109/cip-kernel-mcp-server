@@ -66,6 +66,7 @@ export class CipGitProvider implements PatchProvider {
   private readonly mirrorUrl: string;
   private readonly mirrorDir: string;
   private readonly branches: string[];
+  private readonly cache?: CacheManager;
 
   constructor(
     private readonly loadCve: (cveId: string) => Promise<CveRecord | undefined>,
@@ -78,6 +79,7 @@ export class CipGitProvider implements PatchProvider {
     this.mirrorUrl = opts.mirrorUrl ?? process.env.CIP_MCP_MIRROR_URL ?? CIP_MIRROR_URL;
     this.mirrorDir = opts.mirrorDir ?? join(process.cwd(), '.cip-mcp-cache', 'linux-cip');
     this.branches = opts.branches ?? [...CipGitProvider.BRANCHES];
+    this.cache = opts.cache;
   }
 
   async init(): Promise<void> {}
