@@ -1,5 +1,8 @@
 # CIP Kernel MCP Server
 
+[![CI](https://github.com/0x00000109/cip-kernel-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/0x00000109/cip-kernel-mcp-server/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](LICENSE)
+
 **An open-source MCP (Model Context Protocol) server engine for Linux system administrators managing systems on CIP super-long-term-support (SLTS) kernels (5.10.x) — built to accelerate dependency discovery and security patch implementation.**
 
 ## 1. Motivation
@@ -77,7 +80,7 @@ Phase **P0 (MCP Foundation)** — engine implemented:
 - Patch provenance: **live [linux-cip mirror](https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git/) queries** — metadata-only cached clone of the CIP kernel repo; backports matched via the upstream fixing sha (`commit <sha> upstream.` / `Fixes:` lines, Rule R4), each reported with the first tagged CIP release containing it (e.g. `v5.10.163-cip35`) and a browsable commit URL; branches without a backport get an explicit negative signal; degrades to record-derived candidates when offline.
 - Analysis: CVE applicability engine with two evidence-backed gates — version range (fix already present / not introduced) and config/module mapping; patch locator per stable series with CIP backport resolution.
 - MCP tools: `scan_system`, `query_cve`, `find_patches`, `cve_applicability`.
-- CI (Node 20/22: type-check, tests, build), vitest coverage for engine and analysis modules.
+- CI (Node 20/22: type-check, tests, build), vitest coverage for engine and analysis modules; reproducible installs via package-lock.json, `npm audit` clean.
 
 Requires the `git` CLI on the host (for the vulns.git and linux-cip mirrors); the NVD fallback needs no git.
 
@@ -91,6 +94,8 @@ Requires the `git` CLI on the host (for the vulns.git and linux-cip mirrors); th
 ## 8. Development
 
 ```bash
+git clone https://github.com/0x00000109/cip-kernel-mcp-server.git
+cd cip-kernel-mcp-server
 npm install
 npm run lint     # type-check (tsc --noEmit)
 npm test         # vitest
@@ -98,13 +103,51 @@ npm run build    # compile to dist/
 npm start        # run the MCP server over stdio
 ```
 
-Point your MCP client's stdio command at `node dist/index.js`. Environment overrides:
+Environment overrides:
 
 - `CIP_MCP_CACHE_DIR` — cache directory (default `.cip-mcp-cache`)
 - `CIP_MCP_AUDIT_LOG` — audit log path (default `.cip-mcp-audit.log`)
 - `CIP_MCP_VULNS_DIR` — kernel.org vulns.git mirror location (default `<cache>/vulns`)
 - `CIP_MCP_MIRROR_DIR` — linux-cip mirror location (default `<cache>/linux-cip`)
 - `CIP_MCP_MIRROR_URL` — linux-cip mirror URL override (default `git.kernel.org`)
+
+### 8.1 Connecting an MCP client
+
+Build once, then point any MCP-capable client at the server:
+
+```bash
+npm run build
+npx @modelcontextprotocol/inspector node dist/index.js
+```
+
+The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) gives an interactive test harness: connect, list tools, and call `scan_system`, `query_cve`, `find_patches`, `cve_applicability` directly.
+
+**Claude Desktop** — add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
+
+```json
+{
+  "mcpServers": {
+    "cip-kernel": {
+      "command": "node",
+      "args": ["/home/admin/cip-kernel-mcp-server/dist/index.js"],
+      "env": {
+        "CIP_MCP_CACHE_DIR": "/var/cache/cip-mcp"
+      }
+    }
+  }
+}
+```
+
+**Cursor / other stdio clients** — the same `mcpServers` shape goes in `.cursor/mcp.json` (project scope) or your client's equivalent.
+
+First queries to try:
+
+- `scan_system` — read-only inventory of the host (kernel, config with resolved source, modules, distro)
+- `query_cve` with e.g. `CVE-2024-26581` — normalized record: affected files, version ranges, fixing commits
+- `cve_applicability` with the same CVE — verdict + evidence chain against *this* host
+- `find_patches` — provenance chain: stable fix → CIP backport commit + first tagged CIP release
+
+Note: the server is read-only; cache and audit files are the only things it writes. First calls that hit kernel.org sources clone the mirrors (a few hundred MB of metadata, once) — see the env overrides above to relocate the cache.
 
 Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md).
 
