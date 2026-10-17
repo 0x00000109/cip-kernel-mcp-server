@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { AuditLog } from '../engine/audit.js';
-import type { CveFeedProvider } from '../providers/cve-feeds.js';
+import type { CveProvider } from '../engine/types.js';
 import type { SystemInventoryProvider } from '../providers/system-inventory.js';
 import { CipGitProvider } from '../providers/cip-git.js';
 import { PatchLocator } from '../analysis/patch-locator.js';
@@ -10,7 +10,8 @@ import { assessApplicability } from '../analysis/cve-applicability.js';
 export interface ToolDeps {
   audit: AuditLog;
   inventory: SystemInventoryProvider;
-  cveFeed: CveFeedProvider;
+  /** CVE provider chain — kernel.org first, NVD fallback (Rule R1). */
+  cveFeed: CveProvider;
 }
 
 /**
@@ -47,7 +48,7 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
     {
       title: 'Query CVE record',
       description:
-        'Look up a CVE by id. Returns a normalized record with affected files and fixing commits where the feed provides them (R1/R3).',
+        'Look up a CVE by id (kernel.org cve records first, NVD fallback). Returns a normalized record with affected files, version ranges, and fixing commits (R1/R3).',
       inputSchema: {
         cveId: z
           .string()
@@ -74,7 +75,7 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
     {
       title: 'Find patches for a CVE',
       description:
-        'Locate existing fixing commits along the provenance chain: mainline -> stable -> CIP branches (R1/R4).',
+        'Locate existing fixes along the provenance chain: mainline -> stable -> CIP branches, with the fixing stable release per series (R1/R4).',
       inputSchema: {
         cveId: z
           .string()
@@ -98,7 +99,7 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
     {
       title: 'Assess CVE applicability',
       description:
-        'Cross-reference a CVE against this system config + modules. Verdict: applicable / not-applicable / unknown, always with an evidence chain (R3).',
+        'Cross-reference a CVE against this system version + config + modules. Two gates: version range (fix already present / not introduced) and config mapping. Verdict always carries an evidence chain (R3).',
       inputSchema: {
         cveId: z
           .string()

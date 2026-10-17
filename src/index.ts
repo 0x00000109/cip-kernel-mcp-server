@@ -3,6 +3,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { AuditLog } from './engine/audit.js';
 import { CacheManager } from './engine/cache.js';
+import { KernelCveProvider } from './providers/kernel-cve.js';
+import { CveService } from './providers/cve-service.js';
 import { CveFeedProvider } from './providers/cve-feeds.js';
 import { SystemInventoryProvider } from './providers/system-inventory.js';
 import { registerTools } from './tools/register.js';
@@ -14,7 +16,18 @@ async function main(): Promise<void> {
   const audit = new AuditLog(AUDIT_LOG_PATH);
   const cache = new CacheManager(CACHE_DIR);
   const inventory = new SystemInventoryProvider();
-  const cveFeed = new CveFeedProvider(cache);
+
+  // CVE chain: kernel.org cve records first (commit-keyed, Rule R3), NVD as
+  // fallback. A provider that is unavailable (e.g. no git CLI, air-gapped
+  // host) is skipped with a warning — see CveService.
+  const kernelCve = new KernelCveProvider(cache, {
+    vulnsDir: process.env.CIP_MCP_VULNS_DIR,
+  });
+  const nvd = new CveFeedProvider(cache);
+  const cveFeed = new CveService([kernelCve, nvd], (providerId, message) => {
+    console.error(`[cve] provider ${providerId} unavailable: ${message}`);
+  });
+  await cveFeed.init();
 
   const server = new McpServer(
     { name: 'cip-kernel-mcp-server', version: '0.1.0' },

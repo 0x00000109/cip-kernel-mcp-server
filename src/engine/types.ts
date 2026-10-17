@@ -32,6 +32,20 @@ export interface AffectedEntry {
   file: string;
 }
 
+/**
+ * Affected version range for one stable series, derived from the kernel.org
+ * CVE record (cpeApplicability). `fixedIn` is versionEndExcluding; a range
+ * without `fixedIn` is an open, unfixed range for that branch (Rule R3).
+ */
+export interface AffectedRange {
+  /** Stable series, e.g. '5.10'. */
+  series: string;
+  /** Stable branch label, e.g. 'linux-5.10.y'. */
+  branch: string;
+  startIncluding?: string;
+  fixedIn?: string;
+}
+
 export interface FixingCommit {
   sha: string;
   branches: string[];
@@ -49,6 +63,7 @@ export interface CveRecord {
   description: string;
   source: CveSource;
   affected: AffectedEntry[];
+  affectedRanges?: AffectedRange[];
   fixingCommits: FixingCommit[];
   fetchedAt: string;
 }
@@ -70,10 +85,13 @@ export interface ApplicabilityResult {
 }
 
 export interface PatchCandidate {
-  upstreamSha: string;
+  /** Upstream fixing commit, when known (may be unresolved at record level). */
+  upstreamSha?: string;
   branch: string;
   title: string;
   cve?: string;
+  /** Stable release that contains the fix, e.g. '5.10.163'. */
+  fixedIn?: string;
 }
 
 export interface Provider {

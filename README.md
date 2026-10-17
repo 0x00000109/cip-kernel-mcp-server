@@ -31,9 +31,9 @@ The [Civil Infrastructure Platform (CIP)](https://www.cip-project.org/) maintain
 | Tool | Purpose | Phase |
 | --- | --- | --- |
 | `scan_system` | Collect a read-only machine inventory: kernel version, config (`/proc/config.gz`), loaded modules, distro. | P0 |
-| `query_cve` | Look up a CVE across NVD, the kernel.org `cve-tracker`, and CIP security feeds; normalized record with affected files and fixing commits. | P0 |
-| `cve_applicability` | Cross-reference a CVE against a concrete kernel config + module inventory → **applicable / not applicable / unknown**, always with an evidence chain. | P0 |
-| `find_patches` | Locate existing fixing commits: mainline → stable 5.10.y → CIP branches. | P0 |
+| `query_cve` | Look up a CVE: kernel.org cve records first (commit-keyed), NVD fallback. Normalized record with affected files, version ranges, and fixing commits. | P0 |
+| `cve_applicability` | Two gates: version range (fix already present / not introduced) and config mapping → **applicable / not applicable / unknown**, always with an evidence chain. | P0 |
+| `find_patches` | Locate existing fixes: mainline → stable → CIP branches, with the fixing stable release per series. | P0 |
 | `dependency_graph` | Build and query a dependency graph: kernel symbols ↔ modules ↔ drivers ↔ packages ↔ services. | P1 |
 | `patch_builder` | Draft a kernel-rule-compliant backport into a staging directory; conflict report. | P1 |
 | `release_tracker` | Per installed CIP release: fixed vs outstanding CVEs, update recommendation. | P1 |
@@ -50,8 +50,8 @@ flowchart LR
     A["MCP Client<br/>Claude Code / IDE / Chat"] -->|MCP stdio / HTTP| B["CIP Kernel MCP Server"]
     B --> C["Tool Layer<br/>scan · graph · CVE · patch"]
     C --> D[("Local Sysfs / Procfs<br/>Kernel Info & Config")]
-    C --> E[("Local Cache + Integrity<br/>CVE DB, CIP git mirrors")]
-    C --> F[("Remote Sources<br/>NVD, kernel.org cve-tracker,<br/>cip-kernel git")]
+    C --> E[("Local Cache + Integrity<br/>CVE DB, vulns.git mirror")]
+    C --> F[("Remote Sources<br/>kernel.org vulns.git,<br/>NVD, cip-kernel git")]
     H["Administrator<br/>approves mutating actions"] --> B
 ```
 
@@ -69,19 +69,21 @@ flowchart LR
 
 ## 6. Status
 
-Phase **P0 (MCP Foundation)** — engine skeleton implemented:
+Phase **P0 (MCP Foundation)** — engine implemented:
 
-- Engine core: MCP runtime (stdio), audit trail, offline-first cache, source-integrity hooks, tool registry.
-- Providers: system inventory (read-only `/proc` + `/sys` paths), CVE feeds (NVD via cache), CIP git (branch catalogue + passthrough; live mirror queries are the next P0 step).
-- Analysis: CVE applicability engine with evidence chains (Rule R3), patch locator (Rule R1).
+- Engine core: MCP runtime (stdio), hash-chained audit trail, offline-first cache, source-integrity hooks, tool registry.
+- CVE chain: **kernel.org cve records via [vulns.git](https://git.kernel.org/pub/scm/linux/security/vulns.git/)** (CVE JSON 5.0: affected files, per-series version ranges from `cpeApplicability`, commit-keyed fixing commits) with NVD fallback; a provider that is unavailable (no git CLI, air-gapped host) is skipped.
+- Analysis: CVE applicability engine with two evidence-backed gates — version range (fix already present / not introduced) and config/module mapping; patch locator per stable series.
 - MCP tools: `scan_system`, `query_cve`, `find_patches`, `cve_applicability`.
 - CI (Node 20/22: type-check, tests, build), vitest coverage for engine and analysis modules.
+
+Requires the `git` CLI on the host (for the vulns.git mirror); the NVD fallback needs no git.
 
 ## 7. Tech Stack
 
 - **Language:** TypeScript (Node.js ≥ 20) — chosen at kickoff; the official MCP SDK is TypeScript-first, giving a single-language engine + provider SDK. Python provider examples may follow in P3.
 - **MCP SDK:** official [Model Context Protocol SDK](https://github.com/modelcontextprotocol/typescript-sdk) (server side, stdio transport).
-- **Data:** offline-first JSON cache; NVD now, kernel.org `cve-tracker` + CIP git mirrors next.
+- **Data:** kernel.org vulns.git mirror (git CLI) + NVD API, behind the offline-first JSON cache.
 - **CI:** GitHub Actions on Node 20/22 with vitest.
 
 ## 8. Development
@@ -94,7 +96,13 @@ npm run build    # compile to dist/
 npm start        # run the MCP server over stdio
 ```
 
-Point your MCP client's stdio command at `node dist/index.js`. Environment overrides: `CIP_MCP_CACHE_DIR`, `CIP_MCP_AUDIT_LOG`. Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md).
+Point your MCP client's stdio command at `node dist/index.js`. Environment overrides:
+
+- `CIP_MCP_CACHE_DIR` — cache directory (default `.cip-mcp-cache`)
+- `CIP_MCP_AUDIT_LOG` — audit log path (default `.cip-mcp-audit.log`)
+- `CIP_MCP_VULNS_DIR` — kernel.org vulns.git mirror location (default `<cache>/vulns`)
+
+Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 9. License & Contribution
 
@@ -112,8 +120,8 @@ MIT licensed. Contributions welcome: kernel triage expertise, MCP tool ideas, CV
 ├── src/
 │   ├── index.ts              # MCP server entry (stdio)
 │   ├── engine/               # L0: types, runtime, audit, cache, integrity, registry
-│   ├── providers/            # L1: system inventory, CVE feeds, CIP git
-│   ├── analysis/             # L2: CVE applicability, patch locator
+│   ├── providers/            # L1: system inventory, kernel.org cve, NVD, CIP git, cve-service
+│   ├── analysis/             # L2: CVE applicability, version ranges, patch locator
 │   └── tools/                # L3: MCP tool wiring
 ├── tests/
 └── .github/                  # CI workflow, issue templates

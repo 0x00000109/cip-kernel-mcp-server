@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { assessApplicability } from '../src/analysis/cve-applicability';
 import type { CveRecord, KernelInventory } from '../src/engine/types';
 
-const inventory = (): KernelInventory => ({
-  kernelVersion: '5.10.209-cip50',
+const inventory = (kernelVersion = '5.10.209-cip50'): KernelInventory => ({
+  kernelVersion,
   arch: 'arm64',
   config: {
     CONFIG_EXT4_FS: 'n',
     CONFIG_BT: 'y',
     CONFIG_USB: 'm',
+    CONFIG_NETFILTER: 'y',
   },
   modules: [{ name: 'usb_storage', sizeKb: 100, usedBy: [] }],
   distro: { id: 'debian', name: 'Debian GNU/Linux', version: '11' },
@@ -16,18 +17,19 @@ const inventory = (): KernelInventory => ({
   collectedAt: new Date().toISOString(),
 });
 
-const cve = (file: string): CveRecord => ({
+const cve = (file: string, affectedRanges?: CveRecord['affectedRanges']): CveRecord => ({
   id: 'CVE-2024-9999',
   description: 'fixture',
   source: 'kernel.org-cve',
   affected: [{ file }],
+  ...(affectedRanges ? { affectedRanges } : {}),
   fixingCommits: [
     { sha: 'a'.repeat(40), branches: ['linux-5.10.y-cip'] },
   ],
   fetchedAt: new Date().toISOString(),
 });
 
-describe('assessApplicability (Rule R3, module A1)', () => {
+describe('assessApplicability — config gate (Rule R3, module A1)', () => {
   it('returns not-applicable with high confidence when the subsystem is disabled', () => {
     const result = assessApplicability(cve('fs/ext4/inode.c'), inventory());
     expect(result.verdict).toBe('not-applicable');
@@ -67,5 +69,68 @@ describe('assessApplicability (Rule R3, module A1)', () => {
     const result = assessApplicability(rec, inventory());
     expect(result.verdict).toBe('unknown');
     expect(result.rationale).toContain('No affected-file data');
+  });
+});
+
+describe('assessApplicability — version gate (kernel.org cpeApplicability)', () => {
+  const ranges = [
+    {
+      series: '5.10',
+      branch: 'linux-5.10.y',
+      startIncluding: '5.10.157',
+      fixedIn: '5.10.163',
+    },
+  ];
+
+  it('closes the CVE when the running kernel already contains the fixing release', () => {
+    // 5.10.209 >= fixing release 5.10.163 -> not applicable, high confidence.
+    const result = assessApplicability(cve('net/netfilter/nf_tables_api.c', ranges), inventory());
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.confidence).toBe('high');
+    expect(result.rationale).toContain('5.10.163');
+    expect(result.evidence.some((e) => e.source.includes('cpeApplicability'))).toBe(true);
+  });
+
+  it('closes the CVE when the running kernel predates the introducing release', () => {
+    const result = assessApplicability(
+      cve('net/netfilter/nf_tables_api.c', ranges),
+      inventory('5.10.100-cip12'),
+    );
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.confidence).toBe('high');
+    expect(result.rationale).toContain('5.10.157');
+  });
+
+  it('proceeds to the config gate when the version is in the affected range', () => {
+    const result = assessApplicability(
+      cve('net/netfilter/nf_tables_api.c', ranges),
+      inventory('5.10.160-cip25'),
+    );
+    expect(result.verdict).toBe('applicable');
+    expect(result.evidence.some((e) => e.claim.includes('in the affected range'))).toBe(true);
+  });
+
+  it('treats an open range (no fix released) as in-range', () => {
+    const openRanges = [
+      { series: '5.10', branch: 'linux-5.10.y', startIncluding: '5.10.157' },
+    ];
+    const result = assessApplicability(
+      cve('net/netfilter/nf_tables_api.c', openRanges),
+      inventory(),
+    );
+    expect(result.verdict).toBe('applicable');
+    expect(result.evidence.some((e) => e.claim.includes('no fix released yet'))).toBe(true);
+  });
+
+  it('falls back to the config gate when no range data matches the series', () => {
+    const otherSeriesRanges = [
+      { series: '6.1', branch: 'linux-6.1.y', startIncluding: '6.1.70', fixedIn: '6.1.78' },
+    ];
+    const result = assessApplicability(
+      cve('fs/ext4/inode.c', otherSeriesRanges),
+      inventory(),
+    );
+    expect(result.verdict).toBe('not-applicable'); // via CONFIG_EXT4_FS=n
+    expect(result.evidence.some((e) => e.claim.includes('No version-range data'))).toBe(true);
   });
 });
