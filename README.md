@@ -30,7 +30,7 @@ The [Civil Infrastructure Platform (CIP)](https://www.cip-project.org/) maintain
 
 | Tool | Purpose | Phase |
 | --- | --- | --- |
-| `scan_system` | Collect a read-only machine inventory: kernel version, config (`/proc/config.gz`), loaded modules, distro. | P0 |
+| `scan_system` | Collect a read-only machine inventory: kernel version, config (`/proc/config.gz` → `/boot/config-*` → IKCONFIG extraction from the kernel image), loaded modules, distro. | P0 |
 | `query_cve` | Look up a CVE: kernel.org cve records first (commit-keyed), NVD fallback. Normalized record with affected files, version ranges, and fixing commits. | P0 |
 | `cve_applicability` | Two gates: version range (fix already present / not introduced) and config mapping → **applicable / not applicable / unknown**, always with an evidence chain. | P0 |
 | `find_patches` | Locate existing fixes: mainline → stable → CIP branches; live linux-cip mirror queries resolve the CIP backports (commit, first tagged CIP release). | P0 |
@@ -72,6 +72,7 @@ flowchart LR
 Phase **P0 (MCP Foundation)** — engine implemented:
 
 - Engine core: MCP runtime (stdio), hash-chained audit trail, offline-first cache, source-integrity hooks, tool registry.
+- System inventory: kernel-config fallback chain — `/proc/config.gz` → distro `/boot/config-<release>` → IKCONFIG blob extracted from the kernel image (`CONFIG_IKCONFIG`); disabled options (`# CONFIG_X is not set`) are normalized to `=n` so the applicability config gate can rule subsystems out; the resolved source is reported as `configSource` (limitation: compressed bzImage payloads are not unwrapped — such hosts should ship `/boot/config-*` or enable `CONFIG_IKCONFIG_PROC`).
 - CVE chain: **kernel.org cve records via [vulns.git](https://git.kernel.org/pub/scm/linux/security/vulns.git/)** (CVE JSON 5.0: affected files, per-series version ranges from `cpeApplicability`, commit-keyed fixing commits) with NVD fallback; a provider that is unavailable (no git CLI, air-gapped host) is skipped.
 - Patch provenance: **live [linux-cip mirror](https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git/) queries** — metadata-only cached clone of the CIP kernel repo; backports matched via the upstream fixing sha (`commit <sha> upstream.` / `Fixes:` lines, Rule R4), each reported with the first tagged CIP release containing it (e.g. `v5.10.163-cip35`) and a browsable commit URL; branches without a backport get an explicit negative signal; degrades to record-derived candidates when offline.
 - Analysis: CVE applicability engine with two evidence-backed gates — version range (fix already present / not introduced) and config/module mapping; patch locator per stable series with CIP backport resolution.

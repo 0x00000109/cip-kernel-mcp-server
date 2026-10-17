@@ -15,12 +15,21 @@ export interface ModuleInfo {
   usedBy: string[];
 }
 
+/**
+ * How the running kernel's config was resolved (module P1): procfs when
+ * CONFIG_IKCONFIG_PROC is set, the distro-shipped /boot config, the IKCONFIG
+ * blob extracted from the kernel image, or 'none' when unavailable.
+ */
+export type ConfigSource = 'proc-config-gz' | 'boot-config' | 'ikconfig' | 'none';
+
 /** Result of the system-inventory provider (module P1). */
 export interface KernelInventory {
   kernelVersion: string;
   arch: string;
-  /** CONFIG_X => 'y' | 'm' | 'n' (value strings kept as found in /proc/config.gz). */
+  /** CONFIG_X => 'y' | 'm' | 'n' (value strings kept as found in the config). */
   config: Record<string, string>;
+  /** Where the config was resolved from (fallback chain, module P1). */
+  configSource?: ConfigSource;
   modules: ModuleInfo[];
   distro: DistroInfo;
   packages: string[];

@@ -21,7 +21,7 @@ and security patches.
 | Indiscriminate auto-patching | LLM agent "helpfully" applies fixes | No tool can write to a running system; `patch_builder` emits to a staging dir; applying is a human, out-of-band step. |
 | Prompt-injected patch advice | Malicious content in CVE feeds or repo metadata | Tool outputs are data-only; the server never executes fetched content; verdicts must include an evidence chain the admin can verify. |
 | Poisoned CVE/patch cache | Compromised upstream or MITM | Signed/verifiable sources where available, pinned mirrors, hash checks on cache refresh. |
-| Privilege escalation via scanner | `scan_system` abused to read secrets | Scanner reads only a whitelisted set of paths (`/proc`, `/sys`, package manifests); no arbitrary file read. |
+| Privilege escalation via scanner | `scan_system` abused to read secrets | Scanner reads only a whitelisted set of paths (`/proc/version`, `/proc/config.gz`, `/proc/modules`, `/etc/os-release`, `/boot/config-*`, `/boot/vmlinux*`); no arbitrary file read. |
 | Air-gap exfiltration | Remote lookups from isolated networks | Remote sources are optional; offline mode serves fully from the local cache; egress is explicit in the audit log. |
 | Supply-chain compromise of the server itself | Malicious dependency in the engine | Minimal dependency footprint, lockfiles, provenance-attested releases, reproducible Docker image. |
 
@@ -39,7 +39,8 @@ and security patches.
 
 - **No side effects on production:** no tool writes to the scanned host, ever.
 - **Verifiable answers:** every CVE applicability verdict ships the evidence
-  (config lines, module presence, fixing commit IDs) so a human can audit it.
+  (config lines — including the source the config was resolved from —
+  module presence, fixing commit IDs) so a human can audit it.
 - **Least privilege:** the server runs unprivileged; no root requirement.
 - **Auditability:** every invocation is logged: tool, arguments, data touched,
   and result digest.
