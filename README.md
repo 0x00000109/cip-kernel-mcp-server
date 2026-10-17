@@ -39,6 +39,7 @@ The [Civil Infrastructure Platform (CIP)](https://www.cip-project.org/) maintain
 | `find_patches` | Locate existing fixes: mainline → stable → CIP branches; live linux-cip mirror queries resolve the CIP backports (commit, first tagged CIP release). | P0 |
 | `dependency_graph` | Build and query a dependency graph: kernel symbols ↔ modules ↔ drivers ↔ packages ↔ services. | P1 |
 | `patch_builder` | Draft a kernel-rule-compliant backport into a staging directory; conflict report. | P1 |
+| `query_packages` | Query CIP and Debian kernel packages for ABI stability and dependency tracking. | P1 |
 | `release_tracker` | Per installed CIP release: fixed vs outstanding CVEs, update recommendation. | P1 |
 | `config_audit` | Audit kernel config against hardening baselines (CIP hardening guide / IEC 62443). | P2 |
 | `sbom_export` | Emit a CycloneDX/SPDX SBOM of the scanned system, including kernel and module inventory. | P2 |
@@ -86,6 +87,7 @@ Phase **P1 (Security Workflow)** — partially implemented:
 
 - **Dependency Graph (Module A3, Rule R6):** New tools `build_dependency_graph` and `query_dependency_graph` enable impact analysis and dependency chain discovery. The graph is built from kernel config, loaded modules, and known subsystem mappings, with nodes for subsystems, modules, drivers, and symbols. Query types include: `impact-analysis` (what depends on these nodes?), `dependency-chain` (what do these nodes depend on?), `subgraph` (extract subgraph), and `path` (find paths between nodes). All results include evidence chains for auditability.
 - **Patch Builder (Module W1, Rules R1/R4/R5):** New tool `draft_backport` creates kernel-rule-compliant backports into a staging directory. Generates draft patches with proper backport headers (`commit <sha> upstream`, Rule R4), detects conflicts (version mismatches, refactoring, API changes), and produces conflict reports. Never applies to running system (Rule R1/R5).
+- **CIP Packages (Module P5, Rule R6):** New provider `CipPackagesProvider` tracks CIP kernel packages and Debian kernel packages for ABI stability analysis. Supports querying packages by name, version, source, architecture, kernel version, and CVE. Provides dependency tracking essential for userspace ABI impact analysis. Offline-first with seed data for air-gapped environments.
 
 Requires the `git` CLI on the host (for the vulns.git and linux-cip mirrors); the NVD fallback needs no git.
 

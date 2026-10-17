@@ -1,0 +1,38 @@
+From: CIP Kernel MCP Server <cip-kernel-mcp@localhost>
+Date: 2026-10-17T20:16:15.816Z
+Subject: [PATCH] netfilter: nf_tables: fix use-after-free
+
+Backport of upstream fix for CVE-2024-9999
+
+commit a1b2c3d4e5f6789012345678901234567890abcd upstream
+
+Upstream commit: netfilter: nf_tables: fix use-after-free
+Upstream date: 2026-10-17
+Backported to: linux-5.10.y-cip
+
+Conflicts: 2 detected
+- code-restructured: Patch for 5.10.163 may not apply to linux-5.10.y-cip
+- manual-resolution: Manual review required
+Resolution: Manual review and testing required
+
+
+---
+
+--- a/driver.c
++++ b/driver.c
+@@ -100,7 +100,7 @@
+
+ // Example change from upstream fix
+- old_code();
++ new_code();
+
+
+ /*
+  * CONFLICT RESOLUTION NOTES
+  * =========================
+  * This backport may require manual adjustments:
+  * - code-restructured: Patch for 5.10.163 may not apply to linux-5.10.y-cip
+  * - manual-resolution: Manual review required
+  *
+  * Rule R4: commit a1b2c3d4e5f6 upstream
+  */

@@ -217,6 +217,96 @@ export interface DependencyProvider extends Provider {
 }
 
 // =============================================================================
+// CIP Packages Types (Module P5, Rule R6)
+// =============================================================================
+
+/** Package source type. */
+export type PackageSource = 'cip' | 'debian' | 'ubuntu' | 'elrepo' | 'other';
+
+/**
+ * CIP/Debian package information.
+ * Rule R6: Track dependencies to ensure userspace ABI impact analysis.
+ */
+export interface CipPackage {
+  /** Package name (e.g., 'linux-image-5.10.0-cip1-amd64'). */
+  name: string;
+  /** Package version. */
+  version: string;
+  /** Source repository (e.g., 'cip', 'debian'). */
+  source: PackageSource;
+  /** Maintainer information. */
+  maintainer?: string;
+  /** Package description. */
+  description?: string;
+  /** List of dependencies. */
+  dependencies: string[];
+  /** List of CVEs fixed by this package. */
+  cves: string[];
+  /** URL to the package source or binary. */
+  url?: string;
+  /** Architecture (e.g., 'amd64', 'arm64'). */
+  architecture?: string;
+  /** Kernel version this package provides. */
+  kernelVersion?: string;
+  /** Release date (ISO 8601). */
+  releasedAt?: string;
+  /** Whether this is a CIP kernel package. */
+  isCip: boolean;
+  /** Whether this is a Debian kernel package. */
+  isDebian: boolean;
+}
+
+/** Query options for CIP packages. */
+export interface CipPackageQuery {
+  /** Filter by package name pattern. */
+  name?: string;
+  /** Filter by version. */
+  version?: string;
+  /** Filter by source (cip, debian, etc.). */
+  source?: PackageSource;
+  /** Filter by architecture. */
+  architecture?: string;
+  /** Filter by kernel version. */
+  kernelVersion?: string;
+  /** Filter by CVE ID. */
+  cve?: string;
+  /** Whether to include only CIP packages. */
+  cipOnly?: boolean;
+  /** Whether to include only Debian packages. */
+  debianOnly?: boolean;
+}
+
+/** Result of a CIP packages query. */
+export interface CipPackageQueryResult {
+  packages: CipPackage[];
+  /** Total number of packages matching the query. */
+  total: number;
+  /** Number of CIP packages in the result. */
+  cipCount: number;
+  /** Number of Debian packages in the result. */
+  debianCount: number;
+  /** Evidence chain for the query. */
+  evidence: EvidenceItem[];
+}
+
+/** Provider for CIP/Debian package information. */
+export interface CipPackagesProvider extends Provider {
+  /**
+   * Query CIP and Debian packages.
+   * Rule R6: ABI stability tracking through dependency analysis.
+   */
+  queryPackages(options?: CipPackageQuery): Promise<CipPackageQueryResult>;
+  /**
+   * Get a specific package by name.
+   */
+  getPackage(name: string): Promise<CipPackage | undefined>;
+  /**
+   * Refresh the package cache.
+   */
+  refresh(): Promise<void>;
+}
+
+// =============================================================================
 // Patch Builder Types (Module W1, Rules R1/R4/R5)
 // =============================================================================
 
