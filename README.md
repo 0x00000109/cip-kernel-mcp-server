@@ -85,6 +85,7 @@ Phase **P0 (MCP Foundation)** — engine implemented:
 Phase **P1 (Security Workflow)** — partially implemented:
 
 - **Dependency Graph (Module A3, Rule R6):** New tools `build_dependency_graph` and `query_dependency_graph` enable impact analysis and dependency chain discovery. The graph is built from kernel config, loaded modules, and known subsystem mappings, with nodes for subsystems, modules, drivers, and symbols. Query types include: `impact-analysis` (what depends on these nodes?), `dependency-chain` (what do these nodes depend on?), `subgraph` (extract subgraph), and `path` (find paths between nodes). All results include evidence chains for auditability.
+- **Patch Builder (Module W1, Rules R1/R4/R5):** New tool `draft_backport` creates kernel-rule-compliant backports into a staging directory. Generates draft patches with proper backport headers (`commit <sha> upstream`, Rule R4), detects conflicts (version mismatches, refactoring, API changes), and produces conflict reports. Never applies to running system (Rule R1/R5).
 
 Requires the `git` CLI on the host (for the vulns.git and linux-cip mirrors); the NVD fallback needs no git.
 
