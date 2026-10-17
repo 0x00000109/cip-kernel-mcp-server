@@ -407,6 +407,143 @@ export interface ReleaseAnnouncementsProvider extends Provider {
 }
 
 // =============================================================================
+// Release Tracker Types (Module W2, Rule R3)
+// =============================================================================
+
+/**
+ * Status of a tracked CVE in relation to installed releases.
+ * Rule R3: Commit-keyed - CVEs are tracked by their fixing commits.
+ */
+export type CveStatus = 
+  | 'fixed'              // CVE is fixed in the installed release
+  | 'fixed-upstream'     // CVE is fixed upstream but not in installed release
+  | 'affected'           // CVE affects the installed release, no fix available
+  | 'not-affected'       // CVE does not affect the installed release
+  | 'unknown'            // Status cannot be determined
+  ;
+
+/**
+ * Information about a CVE in the context of release tracking.
+ */
+export interface TrackedCve {
+  /** CVE ID. */
+  cve: string;
+  /** Current status of this CVE. */
+  status: CveStatus;
+  /** Description of the CVE. */
+  description?: string;
+  /** Severity if known. */
+  severity?: string;
+  /** Fixing commit SHAs (Rule R3: commit-keyed). */
+  fixingCommits: string[];
+  /** Release in which this CVE was fixed (if any). */
+  fixedInRelease?: string;
+  /** Evidence chain for this CVE status. */
+  evidence: EvidenceItem[];
+}
+
+/**
+ * Information about an installed CIP release.
+ */
+export interface InstalledRelease {
+  /** Release ID or version. */
+  release: string;
+  /** Kernel version. */
+  kernelVersion: string;
+  /** Installation date (if known). */
+  installedAt?: string;
+  /** Whether this is a CIP release. */
+  isCip: boolean;
+  /** Branch name. */
+  branch?: string;
+}
+
+/**
+ * Recommendation for update action.
+ */
+export type UpdateRecommendation = 
+  | 'no-action'           // System is up-to-date
+  | 'update-available'    // Newer release available
+  | 'security-update'     // Security update available
+  | 'critical-update'     // Critical security update available
+  | 'eol'                // Release is end-of-life
+  ;
+
+/**
+ * Release tracking options.
+ */
+export interface ReleaseTrackingOptions {
+  /** Installed release to track. */
+  installedRelease: string;
+  /** Kernel version. */
+  kernelVersion?: string;
+  /** Kernel series to track (default: extracted from installed release). */
+  series?: string;
+  /** Whether to include CVE tracking. */
+  includeCveTracking?: boolean;
+  /** Whether to check for updates. */
+  checkForUpdates?: boolean;
+}
+
+/**
+ * Result of release tracking for a single release.
+ */
+export interface ReleaseTrackingResult {
+  /** Installed release information. */
+  installed: InstalledRelease;
+  /** Latest available release in the series. */
+  latestAvailable?: CipRelease;
+  /** Whether the installed release is up-to-date. */
+  isUpToDate: boolean;
+  /** Number of releases behind. */
+  releasesBehind: number;
+  /** Update recommendation. */
+  recommendation: UpdateRecommendation;
+  /** List of tracked CVEs. */
+  trackedCves: TrackedCve[];
+  /** Statistics for tracked CVEs. */
+  cveStats: {
+    total: number;
+    fixed: number;
+    fixedUpstream: number;
+    affected: number;
+    notAffected: number;
+    unknown: number;
+  };
+  /** List of available updates. */
+  availableUpdates: CipRelease[];
+  /** Evidence chain for the tracking result. */
+  evidence: EvidenceItem[];
+}
+
+/**
+ * Provider for release tracking functionality.
+ * Rule R3: Commit-keyed - tracks CVEs by their fixing commits.
+ */
+export interface ReleaseTrackerProvider extends Provider {
+  /**
+   * Track a specific release and its CVE status.
+   * Returns comprehensive tracking information including CVE status and update recommendations.
+   */
+  trackRelease(options: ReleaseTrackingOptions): Promise<ReleaseTrackingResult>;
+  /**
+   * Track multiple releases.
+   */
+  trackReleases(options: ReleaseTrackingOptions[]): Promise<ReleaseTrackingResult[]>;
+  /**
+   * Get update status for an installed release.
+   */
+  getUpdateStatus(installedRelease: string): Promise<{
+    isUpToDate: boolean;
+    latestAvailable?: CipRelease;
+    releasesBehind: number;
+    recommendation: UpdateRecommendation;
+    availableUpdates: CipRelease[];
+    evidence: EvidenceItem[];
+  }>;
+}
+
+// =============================================================================
 // Patch Builder Types (Module W1, Rules R1/R4/R5)
 // =============================================================================
 

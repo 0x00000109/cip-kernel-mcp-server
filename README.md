@@ -41,6 +41,10 @@ The [Civil Infrastructure Platform (CIP)](https://www.cip-project.org/) maintain
 | `patch_builder` | Draft a kernel-rule-compliant backport into a staging directory; conflict report. | P1 |
 | `query_packages` | Query CIP and Debian kernel packages for ABI stability and dependency tracking. | P1 |
 | `query_releases` | Query CIP and kernel.org release announcements for tracking fixes. | P1 |
+
+| `track_releases` | Track installed CIP releases and their CVE status with update recommendations. | P1 |
+
+- **Release Tracker (Module W2, Rule R3):** New tool `track_releases` tracks installed CIP releases and their CVE status. Provides update recommendations based on available releases. Rule R3: Commit-keyed - tracks CVEs by their fixing commits. Offline-first with seed data.
 | `release_tracker` | Per installed CIP release: fixed vs outstanding CVEs, update recommendation. | P1 |
 | `config_audit` | Audit kernel config against hardening baselines (CIP hardening guide / IEC 62443). | P2 |
 | `sbom_export` | Emit a CycloneDX/SPDX SBOM of the scanned system, including kernel and module inventory. | P2 |
@@ -88,10 +92,25 @@ Phase **P1 (Security Workflow)** — partially implemented:
 
 - **Dependency Graph (Module A3, Rule R6):** New tools `build_dependency_graph` and `query_dependency_graph` enable impact analysis and dependency chain discovery. The graph is built from kernel config, loaded modules, and known subsystem mappings, with nodes for subsystems, modules, drivers, and symbols. Query types include: `impact-analysis` (what depends on these nodes?), `dependency-chain` (what do these nodes depend on?), `subgraph` (extract subgraph), and `path` (find paths between nodes). All results include evidence chains for auditability.
 - **Patch Builder (Module W1, Rules R1/R4/R5):** New tool `draft_backport` creates kernel-rule-compliant backports into a staging directory. Generates draft patches with proper backport headers (`commit <sha> upstream`, Rule R4), detects conflicts (version mismatches, refactoring, API changes), and produces conflict reports. Never applies to running system (Rule R1/R5).
-- **CIP Packages (Module P5, Rule R6):** New provider `CipPackagesProvider` tracks CIP kernel packages and Debian kernel packages for ABI stability analysis. Supports querying packages by name, version, source, architecture, kernel version, and CVE. Provides dependency tracking essential for userspace ABI impact analysis. Offline-first with seed data for air-gapped environments.
+- **CIP Packages (Module P5, Rule R6):** New provider `CipPackagesProvider` tracks CIP kernel packages and Debian kernel packages for ABI stability analysis. Supports querying packages by name, version, source, architecture, kernel version, and CVE. Provides dependency tracking essential for userspace ABI impact analysis. 
+
+Module P4 provides release tracking essential for:
+- Determining if a system is running an up-to-date CIP kernel
+- Tracking which CVE fixes are available in which releases
+- Understanding the release cadence and support statusfor air-gapped environments.
 
 
-- **Release Announcements (Module P4, Rules R1/R3):** New provider `ReleaseAnnouncementsProvider` tracks CIP and kernel.org release announcements. Supports filtering by version, source, series, branch, date range, and CVE. Rule R1: Upstream first (kernel.org and CIP sources). Rule R3: Commit-keyed (includes fixing commit SHAs). Offline-first with seed data.
+- **Release Announcements (Module P4, Rules R1/R3):** New provider `ReleaseAnnouncementsProvider` tracks CIP and kernel.org release announcements. Supports filtering by version, source, series, branch, date range, and CVE. Rule R1: Upstream first (kernel.org and CIP sources). Rule R3: Commit-keyed (includes fixing commit SHAs). 
+
+Module P4 provides release tracking essential for:
+- Determining if a system is running an up-to-date CIP kernel
+- Tracking which CVE fixes are available in which releases
+- Understanding the release cadence and support status
+
+Module P4 provides release tracking essential for:
+- Determining if a system is running an up-to-date CIP kernel
+- Tracking which CVE fixes are available in which releases
+- Understanding the release cadence and support status
 Requires the `git` CLI on the host (for the vulns.git and linux-cip mirrors); the NVD fallback needs no git.
 
 ## 7. Tech Stack

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { AuditLog } from '../engine/audit.js';
-import type { CveProvider, DependencyQuery, BackportResult } from '../engine/types.js';
+import type { CveProvider, DependencyQuery, BackportResult, ReleaseTrackingOptions } from '../engine/types.js';
 import type { CacheManager } from '../engine/cache.js';
 import type { SystemInventoryProvider } from '../providers/system-inventory.js';
 import { CipGitProvider } from '../providers/cip-git.js';
@@ -9,6 +9,8 @@ import { PatchLocator } from '../analysis/patch-locator.js';
 import { assessApplicability } from '../analysis/cve-applicability.js';
 import { DependencyGraphProvider } from '../analysis/dependency-graph.js';
 import { PatchBuilderProvider } from '../analysis/patch-builder.js';
+import { ReleaseTrackerProvider } from '../analysis/release-tracker.js';
+import { ReleaseAnnouncementsProvider } from '../providers/release-announcements.js';
 
 export interface ToolDeps {
   audit: AuditLog;
@@ -19,6 +21,8 @@ export interface ToolDeps {
   cache: CacheManager;
   /** linux-cip mirror location (default `<cache>/linux-cip`). */
   mirrorDir?: string;
+  /** Release announcements provider (module P4). */
+  releaseAnnouncements?: ReleaseAnnouncementsProvider;
 }
 
 /**
@@ -34,6 +38,15 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
   const patchLocator = new PatchLocator(patchProvider);
   const dependencyGraphProvider = new DependencyGraphProvider();
   const patchBuilderProvider = new PatchBuilderProvider(deps.cveFeed, patchProvider);
+
+  // Initialize release tracker if release announcements provider is available
+  let releaseTrackerProvider: ReleaseTrackerProvider | undefined;
+  if (deps.releaseAnnouncements) {
+    releaseTrackerProvider = new ReleaseTrackerProvider(
+      deps.releaseAnnouncements,
+      deps.cveFeed,
+    );
+  }
 
   server.registerTool(
     'scan_system',
@@ -234,6 +247,52 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
       }
     },
   );
+
+  // Register release tracker tool if release announcements provider is available
+  if (releaseTrackerProvider) {
+    server.registerTool(
+      'track_releases',
+      {
+        title: 'Track release and CVE status',
+        description:
+          'Track an installed CIP release and its CVE status. Returns information about the installed release, latest available release, update recommendation, and tracked CVEs with their status (fixed, fixed-upstream, affected, not-affected, unknown). Rule R3: Commit-keyed tracking (Module W2).',
+        inputSchema: {
+          installedRelease: z
+            .string()
+            .describe('Installed CIP release version (e.g., v5.10.190-cip29)'),
+          kernelVersion: z
+            .string()
+            .optional()
+            .describe('Kernel version (extracted from installedRelease if not provided)'),
+          series: z
+            .string()
+            .optional()
+            .describe('Kernel series to track (e.g., 5.10)'),
+          includeCveTracking: z
+            .boolean()
+            .optional()
+            .default(true)
+            .describe('Whether to include CVE tracking'),
+        },
+      },
+      async ({ installedRelease, kernelVersion, series, includeCveTracking }) => {
+        try {
+          const options: ReleaseTrackingOptions = {
+            installedRelease,
+            kernelVersion,
+            series,
+            includeCveTracking,
+          };
+          const result = await releaseTrackerProvider.trackRelease(options);
+          deps.audit.record('track_releases', options, result);
+          return json(result);
+        } catch (e) {
+          deps.audit.record('track_releases', { installedRelease, kernelVersion, series, includeCveTracking }, undefined, String(e));
+          throw e;
+        }
+      },
+    );
+  }
 }
 
 function json(value: unknown) {
