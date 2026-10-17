@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { AuditLog } from '../engine/audit.js';
-import type { CveProvider } from '../engine/types.js';
+import type { CveProvider, DependencyQuery } from '../engine/types.js';
 import type { CacheManager } from '../engine/cache.js';
 import type { SystemInventoryProvider } from '../providers/system-inventory.js';
 import { CipGitProvider } from '../providers/cip-git.js';
 import { PatchLocator } from '../analysis/patch-locator.js';
 import { assessApplicability } from '../analysis/cve-applicability.js';
+import { DependencyGraphProvider } from '../analysis/dependency-graph.js';
 
 export interface ToolDeps {
   audit: AuditLog;
@@ -30,6 +31,7 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
     mirrorDir: deps.mirrorDir,
   });
   const patchLocator = new PatchLocator(patchProvider);
+  const dependencyGraphProvider = new DependencyGraphProvider();
 
   server.registerTool(
     'scan_system',
@@ -131,6 +133,62 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
         return json(result);
       } catch (e) {
         deps.audit.record('cve_applicability', { cveId }, undefined, String(e));
+        throw e;
+      }
+    },
+  );
+
+  server.registerTool(
+    'build_dependency_graph',
+    {
+      title: 'Build dependency graph',
+      description:
+        'Build a dependency graph from the system inventory: kernel config, loaded modules, and known subsystem mappings. Nodes include subsystems, modules, drivers, symbols. Edges represent dependencies, hierarchy, and usage relationships (Module A3, Rule R6).',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const inventory = await deps.inventory.collect();
+        const result = await dependencyGraphProvider.buildGraph(inventory);
+        deps.audit.record('build_dependency_graph', {}, result);
+        return json(result);
+      } catch (e) {
+        deps.audit.record('build_dependency_graph', {}, undefined, String(e));
+        throw e;
+      }
+    },
+  );
+
+  server.registerTool(
+    'query_dependency_graph',
+    {
+      title: 'Query dependency graph',
+      description:
+        'Query a dependency graph for impact analysis, dependency chains, or paths. Query types: impact-analysis (what depends on these nodes?), dependency-chain (what do these nodes depend on?), subgraph, path (find paths between nodes). Built from system inventory (Module A3, Rule R6).',
+      inputSchema: {
+        queryType: z.enum(['impact-analysis', 'dependency-chain', 'subgraph', 'path']),
+        nodeIds: z.array(z.string()).optional().describe('Node IDs to start from (for impact-analysis, dependency-chain, subgraph)'),
+        startId: z.string().optional().describe('Start node ID for path queries'),
+        endId: z.string().optional().describe('End node ID for path queries'),
+        maxDepth: z.number().optional().describe('Maximum depth for traversal (default: 10)'),
+      },
+    },
+    async ({ queryType, nodeIds, startId, endId, maxDepth }) => {
+      try {
+        const inventory = await deps.inventory.collect();
+        const graph = await dependencyGraphProvider.buildGraph(inventory);
+        const query: DependencyQuery = {
+          queryType,
+          nodeIds,
+          startId,
+          endId,
+          maxDepth,
+        };
+        const result = await dependencyGraphProvider.queryGraph(query, graph);
+        deps.audit.record('query_dependency_graph', { query }, result);
+        return json(result);
+      } catch (e) {
+        deps.audit.record('query_dependency_graph', { queryType, nodeIds, startId, endId }, undefined, String(e));
         throw e;
       }
     },

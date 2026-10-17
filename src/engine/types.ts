@@ -127,3 +127,91 @@ export interface CveProvider extends Provider {
 export interface PatchProvider extends Provider {
   findPatches(cveId: string): Promise<PatchCandidate[]>;
 }
+
+// =============================================================================
+// Dependency Graph Types (Module A3, Rule R6)
+// =============================================================================
+
+/**
+ * Node types in the dependency graph.
+ * Symbols: kernel symbols (EXPORT_SYMBOL)
+ * Modules: kernel modules (from /proc/modules or modinfo)
+ * Drivers: device drivers (often built as modules)
+ * Packages: distro packages (dpkg, rpm)
+ * Subsystems: kernel subsystems (e.g., NET, USB, DRM)
+ * Files: source files in the kernel tree
+ */
+export type DependencyNodeType = 'symbol' | 'module' | 'driver' | 'package' | 'subsystem' | 'file';
+
+/** A node in the dependency graph. */
+export interface DependencyNode {
+  id: string;
+  type: DependencyNodeType;
+  name: string;
+  /** For symbols: the module that exports it. For modules: the file path. */
+  source?: string;
+  /** For modules: loaded status. For packages: installed version. */
+  status?: string;
+}
+
+/** An edge between two nodes in the dependency graph. */
+export interface DependencyEdge {
+  from: string; // node id
+  to: string;   // node id
+  type: 'depends-on' | 'requires' | 'uses' | 'built-from' | 'part-of';
+  /** Evidence for this edge (e.g., 'CONFIG_X=y', 'modinfo deps', 'symbol table'). */
+  evidence?: string;
+}
+
+/** The dependency graph structure. */
+export interface DependencyGraph {
+  nodes: DependencyNode[];
+  edges: DependencyEdge[];
+  /** Timestamp when the graph was built. */
+  builtAt: string;
+  /** Source of the graph (e.g., 'system-inventory', 'cve-record'). */
+  source: string;
+}
+
+/** Query types for the dependency graph. */
+export type DependencyQueryType = 
+  | 'impact-analysis'    // What depends on this node?
+  | 'dependency-chain'  // What does this node depend on?
+  | 'subgraph'          // Subgraph containing these nodes
+  | 'path'              // Find paths between nodes
+  ;
+
+/** Parameters for graph queries. */
+export interface DependencyQuery {
+  queryType: DependencyQueryType;
+  /** Node IDs to start from (for impact-analysis, dependency-chain, subgraph). */
+  nodeIds?: string[];
+  /** For path queries: start and end node IDs. */
+  startId?: string;
+  endId?: string;
+  /** Maximum depth for traversal. */
+  maxDepth?: number;
+}
+
+/** Result of a dependency graph query. */
+export interface DependencyQueryResult {
+  query: DependencyQuery;
+  nodes: DependencyNode[];
+  edges: DependencyEdge[];
+  /** For impact-analysis: nodes that depend on the query nodes. */
+  impactedNodes?: string[];
+  /** For dependency-chain: nodes that the query nodes depend on. */
+  dependencyNodes?: string[];
+  /** For path queries: list of paths from start to end. */
+  paths?: string[][];
+  /** Evidence chain for the query result. */
+  evidence: EvidenceItem[];
+}
+
+/** Provider for dependency graph data. */
+export interface DependencyProvider extends Provider {
+  /** Build a dependency graph from the given inventory. */
+  buildGraph(inventory: KernelInventory): Promise<DependencyGraph>;
+  /** Query the dependency graph. */
+  queryGraph(query: DependencyQuery, graph?: DependencyGraph): Promise<DependencyQueryResult>;
+}
