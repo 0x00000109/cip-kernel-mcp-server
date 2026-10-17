@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { AuditLog } from '../engine/audit.js';
 import type { CveProvider } from '../engine/types.js';
+import type { CacheManager } from '../engine/cache.js';
 import type { SystemInventoryProvider } from '../providers/system-inventory.js';
 import { CipGitProvider } from '../providers/cip-git.js';
 import { PatchLocator } from '../analysis/patch-locator.js';
@@ -12,6 +13,10 @@ export interface ToolDeps {
   inventory: SystemInventoryProvider;
   /** CVE provider chain — kernel.org first, NVD fallback (Rule R1). */
   cveFeed: CveProvider;
+  /** Offline-first cache (module E4) — also throttles mirror syncs. */
+  cache: CacheManager;
+  /** linux-cip mirror location (default `<cache>/linux-cip`). */
+  mirrorDir?: string;
 }
 
 /**
@@ -20,7 +25,10 @@ export interface ToolDeps {
  * depends on remote data carries its freshness (R2).
  */
 export function registerTools(server: McpServer, deps: ToolDeps): void {
-  const patchProvider = new CipGitProvider((cveId) => deps.cveFeed.query(cveId));
+  const patchProvider = new CipGitProvider((cveId) => deps.cveFeed.query(cveId), {
+    cache: deps.cache,
+    mirrorDir: deps.mirrorDir,
+  });
   const patchLocator = new PatchLocator(patchProvider);
 
   server.registerTool(
@@ -75,7 +83,7 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
     {
       title: 'Find patches for a CVE',
       description:
-        'Locate existing fixes along the provenance chain: mainline -> stable -> CIP branches, with the fixing stable release per series (R1/R4).',
+        'Locate existing fixes along the provenance chain: mainline -> stable -> CIP branches. Live linux-cip mirror queries resolve the CIP backports (backport commit, first tagged CIP release, e.g. v5.10.163-cip35); degrades to record-derived candidates when the mirror is unavailable (R1/R2/R4).',
       inputSchema: {
         cveId: z
           .string()

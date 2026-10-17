@@ -16,7 +16,9 @@ export class PatchLocator {
 function dedupe(patches: PatchCandidate[]): PatchCandidate[] {
   const seen = new Set<string>();
   return patches.filter((p) => {
-    const key = `${p.upstreamSha}@${p.branch}`;
+    // A resolved backport commit is authoritative even when its upstream
+    // sha is unknown, so key on the patch sha first.
+    const key = `${p.patchSha ?? p.upstreamSha ?? ''}@${p.branch}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

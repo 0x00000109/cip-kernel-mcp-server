@@ -87,11 +87,19 @@ export interface ApplicabilityResult {
 export interface PatchCandidate {
   /** Upstream fixing commit, when known (may be unresolved at record level). */
   upstreamSha?: string;
+  /** Backport commit on a CIP branch, resolved via the linux-cip mirror (R4). */
+  patchSha?: string;
   branch: string;
   title: string;
   cve?: string;
   /** Stable release that contains the fix, e.g. '5.10.163'. */
   fixedIn?: string;
+  /** First tagged CIP release containing the backport, e.g. 'v5.10.163-cip35'. */
+  cipRelease?: string;
+  /** Browsable commit URL (kernel.org cgit for the linux-cip mirror). */
+  url?: string;
+  /** How the candidate was resolved. */
+  source?: 'cip-mirror' | 'cve-record';
 }
 
 export interface Provider {

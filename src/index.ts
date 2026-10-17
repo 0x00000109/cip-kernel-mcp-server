@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { join } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { AuditLog } from './engine/audit.js';
@@ -39,7 +40,13 @@ async function main(): Promise<void> {
     },
   );
 
-  registerTools(server, { audit, inventory, cveFeed });
+  registerTools(server, {
+    audit,
+    inventory,
+    cveFeed,
+    cache,
+    mirrorDir: process.env.CIP_MCP_MIRROR_DIR ?? join(CACHE_DIR, 'linux-cip'),
+  });
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

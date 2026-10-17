@@ -33,7 +33,7 @@ The [Civil Infrastructure Platform (CIP)](https://www.cip-project.org/) maintain
 | `scan_system` | Collect a read-only machine inventory: kernel version, config (`/proc/config.gz`), loaded modules, distro. | P0 |
 | `query_cve` | Look up a CVE: kernel.org cve records first (commit-keyed), NVD fallback. Normalized record with affected files, version ranges, and fixing commits. | P0 |
 | `cve_applicability` | Two gates: version range (fix already present / not introduced) and config mapping → **applicable / not applicable / unknown**, always with an evidence chain. | P0 |
-| `find_patches` | Locate existing fixes: mainline → stable → CIP branches, with the fixing stable release per series. | P0 |
+| `find_patches` | Locate existing fixes: mainline → stable → CIP branches; live linux-cip mirror queries resolve the CIP backports (commit, first tagged CIP release). | P0 |
 | `dependency_graph` | Build and query a dependency graph: kernel symbols ↔ modules ↔ drivers ↔ packages ↔ services. | P1 |
 | `patch_builder` | Draft a kernel-rule-compliant backport into a staging directory; conflict report. | P1 |
 | `release_tracker` | Per installed CIP release: fixed vs outstanding CVEs, update recommendation. | P1 |
@@ -73,17 +73,18 @@ Phase **P0 (MCP Foundation)** — engine implemented:
 
 - Engine core: MCP runtime (stdio), hash-chained audit trail, offline-first cache, source-integrity hooks, tool registry.
 - CVE chain: **kernel.org cve records via [vulns.git](https://git.kernel.org/pub/scm/linux/security/vulns.git/)** (CVE JSON 5.0: affected files, per-series version ranges from `cpeApplicability`, commit-keyed fixing commits) with NVD fallback; a provider that is unavailable (no git CLI, air-gapped host) is skipped.
-- Analysis: CVE applicability engine with two evidence-backed gates — version range (fix already present / not introduced) and config/module mapping; patch locator per stable series.
+- Patch provenance: **live [linux-cip mirror](https://git.kernel.org/pub/scm/linux/kernel/git/cip/linux-cip.git/) queries** — metadata-only cached clone of the CIP kernel repo; backports matched via the upstream fixing sha (`commit <sha> upstream.` / `Fixes:` lines, Rule R4), each reported with the first tagged CIP release containing it (e.g. `v5.10.163-cip35`) and a browsable commit URL; branches without a backport get an explicit negative signal; degrades to record-derived candidates when offline.
+- Analysis: CVE applicability engine with two evidence-backed gates — version range (fix already present / not introduced) and config/module mapping; patch locator per stable series with CIP backport resolution.
 - MCP tools: `scan_system`, `query_cve`, `find_patches`, `cve_applicability`.
 - CI (Node 20/22: type-check, tests, build), vitest coverage for engine and analysis modules.
 
-Requires the `git` CLI on the host (for the vulns.git mirror); the NVD fallback needs no git.
+Requires the `git` CLI on the host (for the vulns.git and linux-cip mirrors); the NVD fallback needs no git.
 
 ## 7. Tech Stack
 
 - **Language:** TypeScript (Node.js ≥ 20) — chosen at kickoff; the official MCP SDK is TypeScript-first, giving a single-language engine + provider SDK. Python provider examples may follow in P3.
 - **MCP SDK:** official [Model Context Protocol SDK](https://github.com/modelcontextprotocol/typescript-sdk) (server side, stdio transport).
-- **Data:** kernel.org vulns.git mirror (git CLI) + NVD API, behind the offline-first JSON cache.
+- **Data:** kernel.org vulns.git mirror + linux-cip mirror (git CLI) + NVD API, behind the offline-first JSON cache.
 - **CI:** GitHub Actions on Node 20/22 with vitest.
 
 ## 8. Development
@@ -101,6 +102,8 @@ Point your MCP client's stdio command at `node dist/index.js`. Environment overr
 - `CIP_MCP_CACHE_DIR` — cache directory (default `.cip-mcp-cache`)
 - `CIP_MCP_AUDIT_LOG` — audit log path (default `.cip-mcp-audit.log`)
 - `CIP_MCP_VULNS_DIR` — kernel.org vulns.git mirror location (default `<cache>/vulns`)
+- `CIP_MCP_MIRROR_DIR` — linux-cip mirror location (default `<cache>/linux-cip`)
+- `CIP_MCP_MIRROR_URL` — linux-cip mirror URL override (default `git.kernel.org`)
 
 Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md).
 
