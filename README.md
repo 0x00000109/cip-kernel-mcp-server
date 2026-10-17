@@ -43,13 +43,13 @@ The [Civil Infrastructure Platform (CIP)](https://www.cip-project.org/) maintain
 
 ```mermaid
 flowchart LR
-    A[MCP Client\nClaude Code / IDE / Chat] -->|MCP stdio / HTTP| B[CIP Kernel MCP Server]
-    B --> C[Tool Layer\nscan, graph, CVE, patch]
-    C --> D[(Local Sysfs / Procfs\nKernel Info & Config)]
-    C --> E[(Local Cache\nCVE DB, CIP git mirrors)]
-    C --> F[(Remote Sources\nNVD, kernel.org cve-tracker,\ncip-kernel git, cip-security)]
-    C --> G[SBOM Engine\nCycloneDX / SPDX]
-    H[Administrator\napproves mutating actions] --> B
+    A["MCP Client<br/>Claude Code / IDE / Chat"] -->|MCP stdio / HTTP| B["CIP Kernel MCP Server"]
+    B --> C["Tool Layer<br/>scan · graph · CVE · patch"]
+    C --> D[("Local Sysfs / Procfs<br/>Kernel Info & Config")]
+    C --> E[("Local Cache<br/>CVE DB, CIP git mirrors")]
+    C --> F[("Remote Sources<br/>NVD, kernel.org cve-tracker,<br/>cip-kernel git, cip-security")]
+    C --> G["SBOM Engine<br/>CycloneDX / SPDX"]
+    H["Administrator<br/>approves mutating actions"] --> B
 ```
 
 - **Transport:** stdio (local admin workstation) and streamable HTTP (team server).
@@ -64,6 +64,8 @@ flowchart LR
 3. **Explicit approval** — every state-changing operation requires a human confirmation step (enforced by the client's MCP approval flow, documented for server operators).
 4. **Full audit trail** — every tool invocation is logged locally (what was read, what was fetched, what was drafted).
 5. **Deterministic outputs** — CVE applicability verdicts always include their evidence chain, so admins can verify the agent's reasoning.
+
+See [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) for the detailed safety and security model.
 
 ## 6. Roadmap
 
@@ -90,7 +92,7 @@ MIT licensed. Contributions welcome: kernel triage expertise, MCP tool ideas, CV
 ├── README.md            # this concept
 ├── LICENSE              # MIT
 ├── docs/
-│   ├── CONCEPT.md       # extended design document
+│   ├── CONCEPT.md       # extended design document (planned)
 │   └── THREAT-MODEL.md  # safety & security model
 ├── src/                 # server + tools (post-kickoff)
 └── .github/             # issue templates, CI
